@@ -61,10 +61,13 @@ deploy:
 # Health check
 health-check:
 	@echo "🏥 Performing health check..."
-	@echo "Testing temps.mittn.ca..."
+	@echo "Testing temps.mittn.ca (via nginx proxy)..."
 	@curl -f -s --max-time 10 -H "Host: temps.mittn.ca" http://localhost >/dev/null && echo "✅ House Temp Tracker: OK" || echo "❌ House Temp Tracker: Failed"
-	@echo "Testing camera.mittn.ca..."
+	@echo "Testing camera.mittn.ca (via nginx proxy)..."
 	@curl -f -s --max-time 10 -H "Host: camera.mittn.ca" http://localhost >/dev/null && echo "✅ Camera Viewer: OK" || echo "❌ Camera Viewer: Failed"
+	@echo "Testing direct port access..."
+	@curl -f -s --max-time 10 http://localhost:5003 >/dev/null && echo "✅ House Temp Tracker (port 5003): OK" || echo "❌ House Temp Tracker (port 5003): Failed"
+	@curl -f -s --max-time 10 http://localhost:5002 >/dev/null && echo "✅ Camera Viewer (port 5002): OK" || echo "❌ Camera Viewer (port 5002): Failed"
 
 # Initialize SSL certificates
 ssl-init:
