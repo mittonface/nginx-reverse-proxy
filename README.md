@@ -48,9 +48,63 @@ This project provides a unified nginx reverse proxy for routing traffic to multi
 - All containers communicate via the shared `proxy-network`
 - Certbot handles automatic SSL certificate renewal
 
+## Deployment
+
+### Manual Deployment
+
+1. Run the deployment script:
+   ```bash
+   ./deploy.sh
+   ```
+
+### Automated Deployment (GitHub Actions)
+
+The project includes GitHub Actions workflow for automated deployment:
+
+1. Set up GitHub secrets in your repository:
+   - `SERVER_HOST` - Your server's IP address or hostname
+   - `SERVER_USER` - SSH username (usually `root`)
+   - `SERVER_SSH_KEY` - Private SSH key for server access
+   - `HOUSE_TEMP_DOMAIN` - Domain for house temperature tracker
+   - `CAMERA_DOMAIN` - Domain for camera viewer
+
+2. Push to `main` branch to trigger deployment
+
+### Using Makefile
+
+The project includes a Makefile for common operations:
+
+```bash
+# Show available commands
+make help
+
+# Validate configuration
+make validate
+
+# Deploy the reverse proxy
+make deploy
+
+# Check service health
+make health-check
+
+# View SSL certificate status
+make ssl-status
+
+# Initialize SSL certificates
+make ssl-init
+
+# View logs
+make logs
+
+# Clean up resources
+make clean
+```
+
 ## Troubleshooting
 
 - Ensure the `proxy-network` exists before starting any services
 - Check that container names match those in the nginx upstream configuration
 - Verify domains are correctly set in the `.env` file
 - Check nginx logs: `docker-compose logs nginx`
+- Use `make health-check` to test if services are responding
+- Use `make ssl-status` to check SSL certificate status
