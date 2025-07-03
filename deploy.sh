@@ -71,8 +71,8 @@ for i in {1..6}; do
     echo "Health check attempt $i/6..."
     
     # Try health check on both domains (via nginx proxy)
-    if curl -f -s --max-time 10 -H "Host: temps.mittn.ca" http://localhost >/dev/null 2>&1 && \
-       curl -f -s --max-time 10 -H "Host: camera.mittn.ca" http://localhost >/dev/null 2>&1; then
+    if curl -f -s --max-time 10 -H "Host: temps.mittn.ca" http://localhost/health >/dev/null 2>&1 && \
+       curl -f -s --max-time 10 -H "Host: camera.mittn.ca" http://localhost/health >/dev/null 2>&1; then
         echo "✅ HTTP health check successful for both domains!"
         health_check_passed=true
         

@@ -111,11 +111,11 @@ jobs:
               house_temp_ok=false
               camera_ok=false
               
-              if curl -f -s --max-time 10 -H "Host: temps.mittn.ca" http://localhost >/dev/null 2>&1; then
+              if curl -f -s --max-time 10 -H "Host: temps.mittn.ca" http://localhost/health >/dev/null 2>&1; then
                 house_temp_ok=true
               fi
               
-              if curl -f -s --max-time 10 -H "Host: camera.mittn.ca" http://localhost >/dev/null 2>&1; then
+              if curl -f -s --max-time 10 -H "Host: camera.mittn.ca" http://localhost/health >/dev/null 2>&1; then
                 camera_ok=true
               fi
               
