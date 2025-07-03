@@ -24,8 +24,16 @@ jobs:
 
       - name: Validate docker-compose
         run: |
-          # Check docker-compose syntax
-          docker-compose config -q
+          # Check docker-compose syntax (try new plugin first, fallback to legacy)
+          if docker compose version >/dev/null 2>&1; then
+            docker compose config -q
+          else
+            # Install docker-compose if not available
+            sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+            docker-compose config -q
+          fi
+          echo "✅ Docker Compose configuration is valid"
 
   deploy:
     name: Deploy to Server
