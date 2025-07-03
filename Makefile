@@ -61,14 +61,10 @@ deploy:
 # Health check
 health-check:
 	@echo "🏥 Performing health check..."
-	@if [ -f .env ]; then \
-		export $$(cat .env | grep -v '^#' | xargs); \
-		echo "Testing $$HOUSE_TEMP_DOMAIN..."; \
-		curl -f -s --max-time 10 -H "Host: $$HOUSE_TEMP_DOMAIN" http://localhost >/dev/null && echo "✅ House Temp Tracker: OK" || echo "❌ House Temp Tracker: Failed"; \
-		curl -f -s --max-time 10 -H "Host: $$CAMERA_DOMAIN" http://localhost >/dev/null && echo "✅ Camera Viewer: OK" || echo "❌ Camera Viewer: Failed"; \
-	else \
-		echo "❌ .env file not found"; \
-	fi
+	@echo "Testing temps.mittn.ca..."
+	@curl -f -s --max-time 10 -H "Host: temps.mittn.ca" http://localhost >/dev/null && echo "✅ House Temp Tracker: OK" || echo "❌ House Temp Tracker: Failed"
+	@echo "Testing camera.mittn.ca..."
+	@curl -f -s --max-time 10 -H "Host: camera.mittn.ca" http://localhost >/dev/null && echo "✅ Camera Viewer: OK" || echo "❌ Camera Viewer: Failed"
 
 # Initialize SSL certificates
 ssl-init:
@@ -78,19 +74,14 @@ ssl-init:
 # Show SSL certificate status
 ssl-status:
 	@echo "🔒 SSL Certificate Status:"
-	@if [ -f .env ]; then \
-		export $$(cat .env | grep -v '^#' | xargs); \
-		for domain in $$HOUSE_TEMP_DOMAIN $$CAMERA_DOMAIN; do \
-			if [ -f "certbot/conf/live/$$domain/fullchain.pem" ]; then \
-				echo "✅ $$domain: Certificate exists"; \
-				openssl x509 -in "certbot/conf/live/$$domain/fullchain.pem" -text -noout | grep -A 2 "Validity" || true; \
-			else \
-				echo "❌ $$domain: No certificate found"; \
-			fi; \
-		done; \
-	else \
-		echo "❌ .env file not found"; \
-	fi
+	@for domain in temps.mittn.ca camera.mittn.ca; do \
+		if [ -f "certbot/conf/live/$$domain/fullchain.pem" ]; then \
+			echo "✅ $$domain: Certificate exists"; \
+			openssl x509 -in "certbot/conf/live/$$domain/fullchain.pem" -text -noout | grep -A 2 "Validity" || true; \
+		else \
+			echo "❌ $$domain: No certificate found"; \
+		fi; \
+	done
 
 # Clean up
 clean:

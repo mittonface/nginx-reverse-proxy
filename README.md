@@ -9,13 +9,9 @@ This project provides a unified nginx reverse proxy for routing traffic to multi
    docker network create proxy-network
    ```
 
-2. Copy the environment file and configure your domains:
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env` to set your actual domains:
-   - `HOUSE_TEMP_DOMAIN` - Domain for the house temperature tracker
-   - `CAMERA_DOMAIN` - Domain for the camera viewer
+2. The domains are hardcoded in the configuration:
+   - `temps.mittn.ca` - House temperature tracker
+   - `camera.mittn.ca` - Camera viewer
 
 3. Update your applications:
    - Both `house-temp-tracker` and `camera-viewer` have been modified to:
@@ -65,10 +61,10 @@ The project includes GitHub Actions workflow for automated deployment:
    - `SERVER_HOST` - Your server's IP address or hostname
    - `SERVER_USER` - SSH username (usually `root`)
    - `SERVER_SSH_KEY` - Private SSH key for server access
-   - `HOUSE_TEMP_DOMAIN` - Domain for house temperature tracker
-   - `CAMERA_DOMAIN` - Domain for camera viewer
 
 2. Push to `main` branch to trigger deployment
+
+Note: Domains are hardcoded as `temps.mittn.ca` and `camera.mittn.ca`
 
 ### Using Makefile
 
