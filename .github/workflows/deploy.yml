@@ -21,17 +21,16 @@ jobs:
           # Create temporary SSL files for HTTPS config testing
           mkdir -p temp-ssl/live/temps.mittn.ca temp-ssl/live/camera.mittn.ca
           
-          # Create minimal dummy certificate files (just need to exist for syntax check)
-          echo "-----BEGIN CERTIFICATE-----" > temp-ssl/live/temps.mittn.ca/fullchain.pem
-          echo "MIIBkTCB+wIJAK7VNZ7+7mDwMA0GCSqGSIb3DQEBCwUAMA0xCzAJBgNVBAYTAlVT" >> temp-ssl/live/temps.mittn.ca/fullchain.pem
-          echo "-----END CERTIFICATE-----" >> temp-ssl/live/temps.mittn.ca/fullchain.pem
+          # Create valid self-signed certificates for testing (small key size for speed)
+          openssl req -x509 -nodes -days 1 -newkey rsa:1024 \
+            -keyout temp-ssl/live/temps.mittn.ca/privkey.pem \
+            -out temp-ssl/live/temps.mittn.ca/fullchain.pem \
+            -subj "/CN=temps.mittn.ca" 2>/dev/null
           
-          echo "-----BEGIN PRIVATE KEY-----" > temp-ssl/live/temps.mittn.ca/privkey.pem
-          echo "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKB" >> temp-ssl/live/temps.mittn.ca/privkey.pem
-          echo "-----END PRIVATE KEY-----" >> temp-ssl/live/temps.mittn.ca/privkey.pem
-          
-          cp temp-ssl/live/temps.mittn.ca/fullchain.pem temp-ssl/live/camera.mittn.ca/fullchain.pem
-          cp temp-ssl/live/temps.mittn.ca/privkey.pem temp-ssl/live/camera.mittn.ca/privkey.pem
+          openssl req -x509 -nodes -days 1 -newkey rsa:1024 \
+            -keyout temp-ssl/live/camera.mittn.ca/privkey.pem \
+            -out temp-ssl/live/camera.mittn.ca/fullchain.pem \
+            -subj "/CN=camera.mittn.ca" 2>/dev/null
           
           # Download real Let's Encrypt configuration files
           curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf > temp-ssl/options-ssl-nginx.conf
