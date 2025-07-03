@@ -2,18 +2,11 @@ services:
   nginx:
     image: nginx:alpine
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
+    network_mode: host
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
-    networks:
-      - proxy-network
-    external_links:
-      - house-temp-tracker-web-1
-      - camera-viewer-camera-viewer-1
 
   certbot:
     image: certbot/certbot
