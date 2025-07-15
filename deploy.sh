@@ -99,8 +99,8 @@ for i in {1..6}; do
         echo "  ✗ temps.mittn.ca not responding"
     fi
     
-    # Check camera domain
-    if curl -f -s --max-time 10 -H "Host: camera.mittn.ca" http://localhost/ >/dev/null 2>&1; then
+    # Check camera domain using /health endpoint
+    if curl -f -s --max-time 10 -H "Host: camera.mittn.ca" http://localhost/health >/dev/null 2>&1; then
         camera_ok=true
         echo "  ✓ camera.mittn.ca responding"
     else
