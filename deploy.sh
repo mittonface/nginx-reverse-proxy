@@ -36,11 +36,16 @@ if ! docker ps | grep -q "dragonball-control-led-server-1"; then
 fi
 
 if [ "$services_ready" = false ]; then
-    read -p "Continue deployment anyway? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "❌ Deployment cancelled"
-        exit 1
+    # In CI/CD or with --force flag, continue anyway
+    if [ "$CI" = "true" ] || [ "$1" = "--force" ]; then
+        echo "⚠️  Continuing deployment despite missing services (CI/force mode)"
+    else
+        read -p "Continue deployment anyway? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "❌ Deployment cancelled"
+            exit 1
+        fi
     fi
 fi
 
