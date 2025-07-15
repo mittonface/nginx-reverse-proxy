@@ -29,8 +29,8 @@ if ! docker ps | grep -q "camera-viewer-camera-viewer-1"; then
     services_ready=false
 fi
 
-if ! docker ps | grep -q "dragonball-control-led-server-1"; then
-    echo "⚠️  Warning: dragonball-control-led-server-1 is not running"
+if ! docker ps | grep -q "led-control-server"; then
+    echo "⚠️  Warning: led-control-server is not running"
     echo "   Please ensure dragonball-control is deployed first"
     services_ready=false
 fi
@@ -53,15 +53,18 @@ fi
 echo "🛑 Stopping existing containers..."
 docker-compose down --timeout 30
 
+# Backup original nginx.conf
+cp nginx.conf nginx.conf.backup
+
 # Configure SSL based on certificate availability
 if [ -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ] && \
    [ -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ] && \
    [ -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ]; then
     echo "✅ SSL certificates found for all domains, using HTTPS configuration"
-    cp nginx.conf nginx.conf.active
+    # nginx.conf is already the HTTPS configuration
 else
     echo "ℹ️  SSL certificates not found for all domains, using HTTP configuration"
-    cp nginx-initial.conf nginx.conf.active
+    cp nginx-initial.conf nginx.conf
 fi
 
 # Start services
@@ -142,6 +145,13 @@ for i in {1..6}; do
 done
 
 echo "✅ Deployment completed!"
+
+# Restore original nginx.conf if we're not in CI
+if [ "$CI" != "true" ] && [ -f "nginx.conf.backup" ]; then
+    echo "🔄 Restoring original nginx.conf..."
+    mv nginx.conf.backup nginx.conf
+fi
+
 echo ""
 echo "🌐 Your applications are accessible at:"
 echo "   House Temp Tracker:"

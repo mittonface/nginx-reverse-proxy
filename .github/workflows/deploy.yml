@@ -65,11 +65,18 @@ jobs:
             # Make deploy.sh executable
             chmod +x deploy.sh
             
+            # Pull external images first
+            docker pull nginx:alpine || true
+            docker pull certbot/certbot || true
+            
             # Set CI environment variable for non-interactive mode
             export CI=true
             
             # Run the deployment script
             ./deploy.sh
+            
+            # Clean up old images
+            docker image prune -f --filter "until=24h"
 
       - name: SSL Certificate Status
         uses: appleboy/ssh-action@v0.1.10
