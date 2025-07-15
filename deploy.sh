@@ -3,7 +3,7 @@ set -e
 
 echo "🚀 Starting nginx-reverse-proxy deployment..."
 
-echo "✅ Using hardcoded domains: temps.mittn.ca and camera.mittn.ca"
+echo "✅ Using hardcoded domains: temps.mittn.ca, camera.mittn.ca, and dragonball.mittn.ca"
 
 # Check if shared network exists
 if ! docker network ls | grep -q "proxy-network"; then
@@ -29,6 +29,12 @@ if ! docker ps | grep -q "camera-viewer-camera-viewer-1"; then
     services_ready=false
 fi
 
+if ! docker ps | grep -q "dragonball-control-led-server-1"; then
+    echo "⚠️  Warning: dragonball-control-led-server-1 is not running"
+    echo "   Please ensure dragonball-control is deployed first"
+    services_ready=false
+fi
+
 if [ "$services_ready" = false ]; then
     read -p "Continue deployment anyway? (y/N) " -n 1 -r
     echo
@@ -43,8 +49,10 @@ echo "🛑 Stopping existing containers..."
 docker-compose down --timeout 30
 
 # Configure SSL based on certificate availability
-if [ -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ] && [ -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ]; then
-    echo "✅ SSL certificates found for both domains, using HTTPS configuration"
+if [ -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ] && \
+   [ -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ] && \
+   [ -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ]; then
+    echo "✅ SSL certificates found for all domains, using HTTPS configuration"
     cp nginx.conf nginx.conf.active
 else
     echo "ℹ️  SSL certificates not found for all domains, using HTTP configuration"
@@ -70,17 +78,47 @@ health_check_passed=false
 for i in {1..6}; do
     echo "Health check attempt $i/6..."
     
-    # Try health check on both domains (via nginx proxy)
-    if curl -f -s --max-time 10 -H "Host: temps.mittn.ca" http://localhost/health >/dev/null 2>&1 && \
-       curl -f -s --max-time 10 -H "Host: camera.mittn.ca" http://localhost/health >/dev/null 2>&1; then
-        echo "✅ HTTP health check successful for both domains!"
+    # Try health check on all three domains (via nginx proxy)
+    temps_ok=false
+    camera_ok=false
+    dragonball_ok=false
+    
+    # Check temps domain
+    if curl -f -s --max-time 10 -H "Host: temps.mittn.ca" http://localhost/ >/dev/null 2>&1; then
+        temps_ok=true
+        echo "  ✓ temps.mittn.ca responding"
+    else
+        echo "  ✗ temps.mittn.ca not responding"
+    fi
+    
+    # Check camera domain
+    if curl -f -s --max-time 10 -H "Host: camera.mittn.ca" http://localhost/ >/dev/null 2>&1; then
+        camera_ok=true
+        echo "  ✓ camera.mittn.ca responding"
+    else
+        echo "  ✗ camera.mittn.ca not responding"
+    fi
+    
+    # Check dragonball domain with its API endpoint
+    if curl -f -s --max-time 10 -H "Host: dragonball.mittn.ca" http://localhost/api/status >/dev/null 2>&1; then
+        dragonball_ok=true
+        echo "  ✓ dragonball.mittn.ca API responding"
+    else
+        echo "  ✗ dragonball.mittn.ca API not responding"
+    fi
+    
+    if [ "$temps_ok" = true ] && [ "$camera_ok" = true ] && [ "$dragonball_ok" = true ]; then
+        echo "✅ HTTP health check successful for all domains!"
         health_check_passed=true
         
         # Check HTTPS if certificates exist
-        if [ -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ]; then
+        if [ -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ] && \
+           [ -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ] && \
+           [ -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ]; then
             if curl -f -s -k --max-time 10 https://temps.mittn.ca >/dev/null 2>&1 && \
-               curl -f -s -k --max-time 10 https://camera.mittn.ca >/dev/null 2>&1; then
-                echo "✅ HTTPS health check successful for both domains!"
+               curl -f -s -k --max-time 10 https://camera.mittn.ca >/dev/null 2>&1 && \
+               curl -f -s -k --max-time 10 https://dragonball.mittn.ca/api/status >/dev/null 2>&1; then
+                echo "✅ HTTPS health check successful for all domains!"
             fi
         fi
         break
@@ -113,6 +151,12 @@ if [ -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ]; then
     echo "     HTTPS: https://camera.mittn.ca"
 fi
 echo ""
-if [ ! -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ] || [ ! -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ]; then
+echo "   DragonBall LED Controller:"
+echo "     HTTP:  http://dragonball.mittn.ca"
+if [ -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ]; then
+    echo "     HTTPS: https://dragonball.mittn.ca"
+fi
+echo ""
+if [ ! -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ] || [ ! -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ] || [ ! -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ]; then
     echo "📝 To set up SSL certificates, run: ./init-letsencrypt.sh"
 fi
