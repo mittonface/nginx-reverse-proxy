@@ -57,13 +57,44 @@ docker-compose down --timeout 30
 cp nginx.conf nginx.conf.backup
 
 # Configure SSL based on certificate availability
-if [ -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ] && \
-   [ -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ] && \
-   [ -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ]; then
+temps_cert=""
+camera_cert=""
+dragonball_cert=""
+
+# Find actual certificate paths (they may have suffixes like -0001)
+if [ -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ]; then
+    temps_cert="temps.mittn.ca"
+elif [ -f "certbot/conf/live/temps.mittn.ca-0001/fullchain.pem" ]; then
+    temps_cert="temps.mittn.ca-0001"
+fi
+
+if [ -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ]; then
+    camera_cert="camera.mittn.ca"
+elif [ -f "certbot/conf/live/camera.mittn.ca-0001/fullchain.pem" ]; then
+    camera_cert="camera.mittn.ca-0001"
+fi
+
+if [ -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ]; then
+    dragonball_cert="dragonball.mittn.ca"
+elif [ -f "certbot/conf/live/dragonball.mittn.ca-0001/fullchain.pem" ]; then
+    dragonball_cert="dragonball.mittn.ca-0001"
+fi
+
+if [ -n "$temps_cert" ] && [ -n "$camera_cert" ] && [ -n "$dragonball_cert" ]; then
     echo "✅ SSL certificates found for all domains, using HTTPS configuration"
-    # nginx.conf is already the HTTPS configuration
+    echo "   temps: $temps_cert"
+    echo "   camera: $camera_cert" 
+    echo "   dragonball: $dragonball_cert"
+    
+    # Update nginx.conf with actual certificate paths
+    sed -i "s|/etc/letsencrypt/live/temps.mittn.ca/|/etc/letsencrypt/live/$temps_cert/|g" nginx.conf
+    sed -i "s|/etc/letsencrypt/live/camera.mittn.ca/|/etc/letsencrypt/live/$camera_cert/|g" nginx.conf
+    sed -i "s|/etc/letsencrypt/live/dragonball.mittn.ca/|/etc/letsencrypt/live/$dragonball_cert/|g" nginx.conf
 else
     echo "ℹ️  SSL certificates not found for all domains, using HTTP configuration"
+    echo "   temps: ${temps_cert:-"missing"}"
+    echo "   camera: ${camera_cert:-"missing"}"
+    echo "   dragonball: ${dragonball_cert:-"missing"}"
     cp nginx-initial.conf nginx.conf
 fi
 
@@ -120,11 +151,9 @@ for i in {1..6}; do
         health_check_passed=true
         
         # Check HTTPS if certificates exist
-        if [ -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ] && \
-           [ -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ] && \
-           [ -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ]; then
+        if [ -n "$temps_cert" ] && [ -n "$camera_cert" ] && [ -n "$dragonball_cert" ]; then
             if curl -f -s -k --max-time 10 https://temps.mittn.ca >/dev/null 2>&1 && \
-               curl -f -s -k --max-time 10 https://camera.mittn.ca >/dev/null 2>&1 && \
+               curl -f -s -k --max-time 10 https://camera.mittn.ca/health >/dev/null 2>&1 && \
                curl -f -s -k --max-time 10 https://dragonball.mittn.ca/api/status >/dev/null 2>&1; then
                 echo "✅ HTTPS health check successful for all domains!"
             fi
@@ -156,22 +185,22 @@ echo ""
 echo "🌐 Your applications are accessible at:"
 echo "   House Temp Tracker:"
 echo "     HTTP:  http://temps.mittn.ca"
-if [ -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ]; then
+if [ -n "$temps_cert" ]; then
     echo "     HTTPS: https://temps.mittn.ca"
 fi
 echo ""
 echo "   Camera Viewer:"
 echo "     HTTP:  http://camera.mittn.ca"
-if [ -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ]; then
+if [ -n "$camera_cert" ]; then
     echo "     HTTPS: https://camera.mittn.ca"
 fi
 echo ""
 echo "   DragonBall LED Controller:"
 echo "     HTTP:  http://dragonball.mittn.ca"
-if [ -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ]; then
+if [ -n "$dragonball_cert" ]; then
     echo "     HTTPS: https://dragonball.mittn.ca"
 fi
 echo ""
-if [ ! -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ] || [ ! -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ] || [ ! -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ]; then
+if [ -z "$temps_cert" ] || [ -z "$camera_cert" ] || [ -z "$dragonball_cert" ]; then
     echo "📝 To set up SSL certificates, run: ./init-letsencrypt.sh"
 fi
