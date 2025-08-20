@@ -120,7 +120,6 @@ else
     echo "   camera: ${camera_cert:-"missing"}"
     echo "   dragonball: ${dragonball_cert:-"missing"}"
     echo "   jirald: ${jirald_cert:-"missing"}"
-fi
     cp nginx-initial.conf nginx.conf
 fi
 
