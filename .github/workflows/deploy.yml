@@ -89,7 +89,7 @@ jobs:
             
             echo "🔒 SSL Certificate Status:"
             
-            for domain in "temps.mittn.ca" "camera.mittn.ca" "dragonball.mittn.ca"; do
+            for domain in "temps.mittn.ca" "camera.mittn.ca" "dragonball.mittn.ca" "jirald.mittn.ca"; do
               if [ -f "certbot/conf/live/${domain}/fullchain.pem" ]; then
                 echo "✅ ${domain}: SSL certificate exists"
                 # Check expiration
@@ -101,7 +101,8 @@ jobs:
             
             if [ ! -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ] || \
                [ ! -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ] || \
-               [ ! -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ]; then
+               [ ! -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ] || \
+               [ ! -f "certbot/conf/live/jirald.mittn.ca/fullchain.pem" ]; then
               echo ""
               echo "📝 To set up SSL certificates, run: ./init-letsencrypt.sh"
               echo "   Make sure DNS records point to this server first!"
