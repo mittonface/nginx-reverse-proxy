@@ -11,13 +11,23 @@ data_path="./certbot"
 email="" # Adding a valid address is strongly recommended
 staging=0 # Set to 1 if you're testing your setup to avoid hitting request limits
 
-if [ -d "$data_path" ]; then
-  read -p "Existing data found for $domains. Continue and replace existing certificate? (y/N) " decision
-  if [ "$decision" != "Y" ] && [ "$decision" != "y" ]; then
-    exit
+# Check which domains need certificates
+missing_domains=()
+for domain in "${domains[@]}"; do
+  if [ ! -f "$data_path/conf/live/$domain/fullchain.pem" ] && [ ! -f "$data_path/conf/live/$domain-0001/fullchain.pem" ]; then
+    missing_domains+=("$domain")
+    echo "📝 Need certificate for: $domain"
+  else
+    echo "✅ Certificate already exists for: $domain"
   fi
+done
+
+if [ ${#missing_domains[@]} -eq 0 ]; then
+  echo "✅ All domains already have certificates!"
+  exit 0
 fi
 
+echo "🔧 Will generate certificates for: ${missing_domains[*]}"
 
 if [ ! -e "$data_path/conf/options-ssl-nginx.conf" ] || [ ! -e "$data_path/conf/ssl-dhparams.pem" ]; then
   echo "### Downloading recommended TLS parameters ..."
@@ -27,8 +37,8 @@ if [ ! -e "$data_path/conf/options-ssl-nginx.conf" ] || [ ! -e "$data_path/conf/
   echo
 fi
 
-echo "### Creating dummy certificate for nginx ..."
-for domain in "${domains[@]}"; do
+echo "### Creating dummy certificates for missing domains ..."
+for domain in "${missing_domains[@]}"; do
   path="/etc/letsencrypt/live/$domain"
   mkdir -p "$data_path/conf/live/$domain"
   docker-compose run --rm --entrypoint "\
@@ -43,8 +53,8 @@ echo "### Starting nginx with initial config ..."
 docker-compose up -d nginx
 echo
 
-echo "### Deleting dummy certificate ..."
-for domain in "${domains[@]}"; do
+echo "### Deleting dummy certificates for missing domains ..."
+for domain in "${missing_domains[@]}"; do
   docker-compose run --rm --entrypoint "\
     rm -Rf /etc/letsencrypt/live/$domain && \
     rm -Rf /etc/letsencrypt/archive/$domain && \
@@ -52,8 +62,8 @@ for domain in "${domains[@]}"; do
   echo
 done
 
-echo "### Requesting Let's Encrypt certificate ..."
-for domain in "${domains[@]}"; do
+echo "### Requesting Let's Encrypt certificates for missing domains ..."
+for domain in "${missing_domains[@]}"; do
   # Select appropriate email arg
   case "$email" in
     "") email_arg="--register-unsafely-without-email" ;;
@@ -63,6 +73,7 @@ for domain in "${domains[@]}"; do
   # Enable staging mode if needed
   if [ $staging != "0" ]; then staging_arg="--staging"; fi
 
+  echo "🔒 Requesting certificate for $domain..."
   docker-compose run --rm --entrypoint "\
     certbot certonly --webroot -w /var/www/certbot \
       $staging_arg \
@@ -76,3 +87,6 @@ done
 
 echo "### Reloading nginx ..."
 docker-compose exec nginx nginx -s reload
+
+echo "✅ Certificate generation complete!"
+echo "📝 Generated certificates for: ${missing_domains[*]}"

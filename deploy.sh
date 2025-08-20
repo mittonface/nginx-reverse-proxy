@@ -59,6 +59,15 @@ fi
 echo "🛑 Stopping existing containers..."
 docker-compose down --timeout 30
 
+# Run certificate generation for any missing domains
+echo "🔐 Checking and generating SSL certificates..."
+if [ -f "init-letsencrypt.sh" ]; then
+    chmod +x init-letsencrypt.sh
+    ./init-letsencrypt.sh
+else
+    echo "⚠️  init-letsencrypt.sh not found, skipping certificate generation"
+fi
+
 # Backup original nginx.conf
 cp nginx.conf nginx.conf.backup
 
@@ -235,5 +244,6 @@ if [ -n "$jirald_cert" ]; then
 fi
 echo ""
 if [ -z "$temps_cert" ] || [ -z "$camera_cert" ] || [ -z "$dragonball_cert" ] || [ -z "$jirald_cert" ]; then
-    echo "📝 To set up SSL certificates, run: ./init-letsencrypt.sh"
+    echo "📝 Some SSL certificates are missing. They should have been generated automatically."
+    echo "   If you need to manually generate certificates, run: ./init-letsencrypt.sh"
 fi
