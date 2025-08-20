@@ -37,6 +37,13 @@ if [ ! -e "$data_path/conf/options-ssl-nginx.conf" ] || [ ! -e "$data_path/conf/
   echo
 fi
 
+echo "### Ensuring nginx uses HTTP-only config for certificate generation ..."
+# Backup current nginx.conf if it exists
+if [ -f "nginx.conf" ]; then
+  cp nginx.conf nginx.conf.backup-letsencrypt
+fi
+cp nginx-initial.conf nginx.conf
+
 echo "### Creating dummy certificates for missing domains ..."
 for domain in "${missing_domains[@]}"; do
   path="/etc/letsencrypt/live/$domain"
@@ -49,8 +56,11 @@ for domain in "${missing_domains[@]}"; do
   echo
 done
 
-echo "### Starting nginx with initial config ..."
+echo "### Starting nginx with HTTP-only config ..."
 docker-compose up -d nginx
+
+echo "### Waiting for nginx to be ready ..."
+sleep 5
 echo
 
 echo "### Deleting dummy certificates for missing domains ..."
@@ -87,6 +97,18 @@ done
 
 echo "### Reloading nginx ..."
 docker-compose exec nginx nginx -s reload
+
+echo "### Restoring original nginx configuration ..."
+if [ -f "nginx.conf.backup-letsencrypt" ]; then
+  mv nginx.conf.backup-letsencrypt nginx.conf
+  echo "🔄 Restored original nginx.conf"
+  # Reload nginx with the restored config
+  docker-compose exec nginx nginx -s reload
+  echo "🔄 Reloaded nginx with SSL configuration"
+else
+  echo "⚠️  No backup found, leaving HTTP configuration active"
+  echo "   You may need to manually switch to SSL configuration"
+fi
 
 echo "✅ Certificate generation complete!"
 echo "📝 Generated certificates for: ${missing_domains[*]}"
