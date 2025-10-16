@@ -104,3 +104,4 @@ make clean
 - Check nginx logs: `docker-compose logs nginx`
 - Use `make health-check` to test if services are responding
 - Use `make ssl-status` to check SSL certificate status
+- 
