@@ -4,6 +4,7 @@ This project provides a unified nginx reverse proxy for routing traffic to multi
 
 ## Setup
 
+
 1. Create the shared Docker network (run once):
    ```bash
    docker network create proxy-network
