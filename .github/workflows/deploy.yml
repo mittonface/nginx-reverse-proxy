@@ -13,27 +13,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Validate nginx configuration
-        run: |
-          # Test nginx-initial.conf (HTTP only - no SSL dependencies)
-          docker run --rm -v $PWD/nginx-initial.conf:/etc/nginx/nginx.conf:ro nginx:alpine nginx -t
-          echo "✅ HTTP configuration is valid"
-          
-          # Skip SSL configuration validation in CI - will be validated on deployment with real certificates
-          echo "ℹ️  SSL configuration will be validated on server with real certificates"
+      - name: Render and validate nginx configuration
+        # No certificates exist on the runner, so this validates the HTTP-only
+        # rendering. The HTTPS rendering is validated on the server at deploy
+        # time, where the real certificates live.
+        run: ./scripts/generate-config.sh
 
       - name: Validate docker-compose
-        run: |
-          # Check docker-compose syntax (try new plugin first, fallback to legacy)
-          if docker compose version >/dev/null 2>&1; then
-            docker compose config -q
-          else
-            # Install docker-compose if not available
-            sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-            docker-compose config -q
-          fi
-          echo "✅ Docker Compose configuration is valid"
+        run: docker compose config -q
 
   deploy:
     name: Deploy to Server
@@ -49,36 +36,41 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "nginx.conf,nginx-initial.conf,docker-compose.yml,deploy.sh,init-letsencrypt.sh,README.md,Makefile"
+          source: "apps.conf,docker-compose.yml,deploy.sh,Makefile,README.md,nginx/nginx.conf,nginx/snippets/*,scripts/*"
           target: "/root/nginx-reverse-proxy"
           strip_components: 0
 
       - name: Deploy reverse proxy
         uses: appleboy/ssh-action@v0.1.10
+        env:
+          LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: LETSENCRYPT_EMAIL
           script: |
             cd /root/nginx-reverse-proxy
-            
-            # Make deploy.sh executable
-            chmod +x deploy.sh
-            
-            # Pull external images first
+
+            chmod +x deploy.sh scripts/*.sh
+
+            # Files from the pre-manifest layout. Leaving them around is
+            # confusing at best: init-letsencrypt.sh no longer matches how
+            # certificates are issued, and a stale root nginx.conf is no longer
+            # what the proxy mounts.
+            rm -f nginx-initial.conf init-letsencrypt.sh nginx.conf \
+                  nginx.conf.backup nginx.conf.backup-letsencrypt \
+                  ADD_NEW_APP_GUIDE.md .env.example
+
             docker pull nginx:alpine || true
             docker pull certbot/certbot || true
-            
-            # Set CI environment variable for non-interactive mode
+
             export CI=true
-            
-            # Run the deployment script
             ./deploy.sh
-            
-            # Clean up old images
+
             docker image prune -f --filter "until=24h"
 
-      - name: SSL Certificate Status
+      - name: SSL certificate status
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -86,24 +78,4 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /root/nginx-reverse-proxy
-            
-            echo "🔒 SSL Certificate Status:"
-            
-            for domain in "temps.mittn.ca" "camera.mittn.ca" "dragonball.mittn.ca" "jirald.mittn.ca"; do
-              if [ -f "certbot/conf/live/${domain}/fullchain.pem" ]; then
-                echo "✅ ${domain}: SSL certificate exists"
-                # Check expiration
-                docker run --rm -v $PWD/certbot/conf:/etc/letsencrypt certbot/certbot certificates | grep -A 5 "$domain" || true
-              else
-                echo "❌ ${domain}: No SSL certificate found"
-              fi
-            done
-            
-            if [ ! -f "certbot/conf/live/temps.mittn.ca/fullchain.pem" ] || \
-               [ ! -f "certbot/conf/live/camera.mittn.ca/fullchain.pem" ] || \
-               [ ! -f "certbot/conf/live/dragonball.mittn.ca/fullchain.pem" ] || \
-               [ ! -f "certbot/conf/live/jirald.mittn.ca/fullchain.pem" ]; then
-              echo ""
-              echo "📝 To set up SSL certificates, run: ./init-letsencrypt.sh"
-              echo "   Make sure DNS records point to this server first!"
-            fi
+            make ssl-status
