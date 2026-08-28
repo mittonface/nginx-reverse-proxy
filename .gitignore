@@ -1,0 +1,7 @@
+# Rendered from apps.conf by scripts/generate-config.sh
+/generated/
+
+# Let's Encrypt state, server-side only
+/certbot/
+
+*.backup
