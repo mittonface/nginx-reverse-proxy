@@ -25,8 +25,14 @@ Never hand-edit `generated/conf.d/` — it is rendered by
 ## Conventions
 
 - Certificates always live at `certbot/conf/live/<domain>/`; issuance passes
-  `--cert-name "$domain"` to keep it that way. There is no `-0001` suffix
-  handling anywhere, and none should be reintroduced.
+  `--cert-name "$domain"` to ask for that. There is no `-0001` suffix handling
+  anywhere, and none should be reintroduced -- the fix for a suffixed lineage is
+  to free the name and re-issue, not to teach the generator about suffixes.
+- `--cert-name` is a request, not a guarantee: certbot ignores it and appends
+  `-0001`, `-0002`, ... if `renewal/<domain>.conf` already exists, even when that
+  config is broken and unusable. `ensure-certs.sh` refuses to issue in that case
+  and verifies on the filesystem afterwards rather than trusting certbot's exit
+  code.
 - Scripts must not modify tracked files. Rendered output goes to `generated/`,
   which is gitignored.
 - Deploys reload nginx rather than restarting it. Avoid adding a

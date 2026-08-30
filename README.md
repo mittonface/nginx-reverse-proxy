@@ -109,9 +109,15 @@ make deploy
 
 The `certbot` container renews certificates every 12 hours; the `nginx`
 container reloads every 6 hours so renewed certificates are actually picked up.
-Certificates are always issued with `--cert-name <domain>`, which pins them to
-`certbot/conf/live/<domain>/` — that is what keeps certbot from inventing
-`live/<domain>-0001/` directories.
+Certificates are issued with `--cert-name <domain>` so they land at
+`certbot/conf/live/<domain>/`, which is the only path the generator looks at.
+
+Note that `--cert-name` is a request rather than a guarantee: if
+`certbot/conf/renewal/<domain>.conf` already exists — even as leftover broken
+state with no `live/` directory — certbot ignores the requested name and issues
+at `<domain>-0001`, `-0002`, and so on instead. `ensure-certs.sh` refuses to
+issue when it sees that, rather than spending a certificate the proxy would not
+use, and tells you which files to remove to free the name.
 
 To issue certificates for domains that are missing them without a full deploy:
 
