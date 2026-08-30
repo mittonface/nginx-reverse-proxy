@@ -36,6 +36,34 @@ if [ ${#missing[@]} -eq 0 ]; then
     exit 0
 fi
 
+# certbot does NOT force the lineage name with --cert-name if that name is
+# already claimed by a renewal config: it silently falls back to <domain>-0001,
+# -0002, and so on. A renewal config whose live/ directory is missing is dead
+# state that squats the name, and issuing against it burns a real certificate
+# and still leaves nothing at live/<domain>/. Refuse before spending it.
+squatted=()
+for domain in "${missing[@]}"; do
+    if [ -f "$CERT_DIR/renewal/$domain.conf" ]; then
+        squatted+=("$domain")
+    fi
+done
+
+if [ ${#squatted[@]} -gt 0 ]; then
+    echo "❌ These domains have a renewal config but no certificate at live/<domain>/:" >&2
+    for domain in "${squatted[@]}"; do
+        echo "     $domain  ($CERT_DIR/renewal/$domain.conf)" >&2
+    done
+    echo "   certbot would ignore --cert-name and issue at $domain-000N instead," >&2
+    echo "   spending a real certificate that this proxy would then not use." >&2
+    echo >&2
+    echo "   Back up certbot/conf, then free the names and re-run:" >&2
+    for domain in "${squatted[@]}"; do
+        echo "     rm -f  certbot/conf/renewal/$domain.conf" >&2
+        echo "     rm -rf certbot/conf/archive/$domain" >&2
+    done
+    exit 1
+fi
+
 echo "🔐 Requesting certificates for: ${missing[*]}"
 
 mkdir -p "$CERT_DIR" "$REPO_ROOT/certbot/www"
@@ -65,12 +93,22 @@ issued=0
 failed=()
 for domain in "${missing[@]}"; do
     echo "🔒 Requesting certificate for $domain..."
-    # --cert-name pins the directory to live/<domain>/ instead of letting certbot
-    # invent live/<domain>-0001/ when it does not recognise an earlier lineage.
+    # --cert-name asks for live/<domain>/. It is honoured only when that name is
+    # free, which the preflight above guarantees; the check after this call is
+    # what catches it being ignored anyway.
     if compose run --rm --entrypoint certbot certbot certonly \
         --cert-name "$domain" -d "$domain" "${certbot_args[@]}"; then
-        issued=$((issued + 1))
-        echo "✅ Issued certificate for $domain"
+        # Trust the filesystem, not the exit code: certbot reports success even
+        # when it has written the certificate to a different lineage name.
+        if cert_exists "$domain"; then
+            issued=$((issued + 1))
+            echo "✅ Issued certificate for $domain"
+        else
+            failed+=("$domain")
+            echo "❌ certbot reported success for $domain but nothing landed at" >&2
+            echo "   $CERT_DIR/live/$domain/ -- it most likely wrote a suffixed" >&2
+            echo "   lineage instead. Check: certbot certificates" >&2
+        fi
     else
         failed+=("$domain")
         echo "❌ Could not issue a certificate for $domain"
